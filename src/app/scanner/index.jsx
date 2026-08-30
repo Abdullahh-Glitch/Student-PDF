@@ -345,7 +345,25 @@ export default function ScannerScreen() {
         </Pressable>
 
         {/* Right side placeholder for Done button */}
-        <View style={styles.galleryButton} />
+        <Pressable
+          style={[
+            styles.doneButton,
+            {
+              backgroundColor: color.primary,
+              opacity: pages.length === 0 ? 0.45 : 1,
+            },
+          ]}
+          onPress={() => {
+            if (pages.length === 0) {
+              return;
+            }
+
+            router.navigate("/scanner/editor");
+          }}
+          disabled={pages.length === 0}
+        >
+          <Text style={styles.doneText}>Done</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -619,5 +637,21 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     borderWidth: 3,
     borderColor: "#D1D5DB",
+  },
+  doneButton: {
+    width: 70,
+    height: 42,
+
+    borderRadius: 14,
+
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  doneText: {
+    color: "#FFFFFF",
+
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
