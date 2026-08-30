@@ -2,9 +2,17 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Image, Zap } from "lucide-react-native";
+import { ArrowLeft, Image as ImageIcon, Zap } from "lucide-react-native";
 import { useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useScanSession } from "../../context/ScanSessionContext";
@@ -17,7 +25,7 @@ export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef(null);
 
-  const { pages, addPage, replacePage } = useScanSession();
+  const { pages, addPage, replacePage, clearSession } = useScanSession();
 
   const [flash, setFlash] = useState("off");
   const [isCapturing, setIsCapturing] = useState(false);
@@ -65,8 +73,15 @@ export default function ScannerScreen() {
 
       console.log(replacePageId ? "Page replaced:" : "Page captured:", newPage);
 
+      /*
+       * Retake mode:
+       * Replace the old page and return to its preview.
+       *
+       * router.replace() is important here because we do NOT
+       * want to create another camera screen in the navigation stack.
+       */
       if (replacePageId) {
-        router.push({
+        router.replace({
           pathname: "/scanner/preview",
           params: {
             uri: photo.uri,
@@ -108,13 +123,46 @@ export default function ScannerScreen() {
     }
   };
 
+  /*
+   * Camera Back behavior
+   *
+   * Normal camera:
+   * - No pages -> Home
+   * - Pages exist -> Ask before discarding
+   *
+   * Retake camera:
+   * - Go directly back to Preview
+   * - Never ask to discard the whole scan
+   */
   const handleCameraBack = () => {
     if (replacePageId) {
       router.back();
       return;
     }
 
-    router.replace("/");
+    if (pages.length === 0) {
+      router.replace("/");
+      return;
+    }
+
+    Alert.alert(
+      "Discard Scan?",
+      "Your captured and selected pages will be discarded.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: () => {
+            clearSession();
+            router.replace("/");
+          },
+        },
+      ],
+    );
   };
 
   if (!permission) {
@@ -189,7 +237,7 @@ export default function ScannerScreen() {
         <View pointerEvents="none" style={styles.captureFlash} />
       )}
 
-      {/* Dark camera overlay */}
+      {/* Scan frame */}
       <View pointerEvents="none" style={styles.scanFrame}>
         <View style={[styles.corner, styles.topLeft]} />
         <View style={[styles.corner, styles.topRight]} />
@@ -206,7 +254,7 @@ export default function ScannerScreen() {
           },
         ]}
       >
-        <Pressable onPress={() => router.back()} style={styles.circleButton}>
+        <Pressable onPress={handleCameraBack} style={styles.circleButton}>
           <ArrowLeft size={22} color={color.white} strokeWidth={2.2} />
         </Pressable>
 
@@ -280,7 +328,7 @@ export default function ScannerScreen() {
         ]}
       >
         <Pressable style={styles.galleryButton} onPress={handleGallery}>
-          <Image size={23} color={color.white} strokeWidth={2} />
+          <ImageIcon size={23} color={color.white} strokeWidth={2} />
 
           <Text style={styles.controlLabel}>Gallery</Text>
         </Pressable>
@@ -296,6 +344,7 @@ export default function ScannerScreen() {
           <View style={styles.captureInner} />
         </Pressable>
 
+        {/* Right side placeholder for Done button */}
         <View style={styles.galleryButton} />
       </View>
     </View>
@@ -310,10 +359,8 @@ const styles = StyleSheet.create({
 
   center: {
     flex: 1,
-
     alignItems: "center",
     justifyContent: "center",
-
     paddingHorizontal: 32,
   },
 
@@ -329,22 +376,16 @@ const styles = StyleSheet.create({
 
   permissionText: {
     marginTop: 10,
-
     fontSize: 14,
     lineHeight: 20,
-
     textAlign: "center",
   },
 
   permissionButton: {
     marginTop: 24,
-
     height: 48,
-
     paddingHorizontal: 24,
-
     borderRadius: 15,
-
     alignItems: "center",
     justifyContent: "center",
   },
@@ -367,22 +408,17 @@ const styles = StyleSheet.create({
 
   scanFrame: {
     position: "absolute",
-
     width: "86%",
     height: "42%",
-
     top: "50%",
     left: "7%",
-
     marginTop: "-21%",
   },
 
   corner: {
     position: "absolute",
-
     width: 30,
     height: 30,
-
     borderWidth: 3,
     borderColor: "#FFFFFF",
   },
@@ -390,50 +426,39 @@ const styles = StyleSheet.create({
   topLeft: {
     top: 0,
     left: 0,
-
     borderRightWidth: 0,
     borderBottomWidth: 0,
-
     borderTopLeftRadius: 8,
   },
 
   topRight: {
     top: 0,
     right: 0,
-
     borderLeftWidth: 0,
     borderBottomWidth: 0,
-
     borderTopRightRadius: 8,
   },
 
   bottomLeft: {
     bottom: 0,
     left: 0,
-
     borderRightWidth: 0,
     borderTopWidth: 0,
-
     borderBottomLeftRadius: 8,
   },
 
   bottomRight: {
     bottom: 0,
     right: 0,
-
     borderLeftWidth: 0,
     borderTopWidth: 0,
-
     borderBottomRightRadius: 8,
   },
 
   captureFlash: {
     ...StyleSheet.absoluteFillObject,
-
     backgroundColor: "#FFFFFF",
-
     opacity: 0.75,
-
     zIndex: 50,
   },
 
@@ -441,10 +466,8 @@ const styles = StyleSheet.create({
 
   topBar: {
     position: "absolute",
-
     left: 20,
     right: 20,
-
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -453,11 +476,8 @@ const styles = StyleSheet.create({
   circleButton: {
     width: 44,
     height: 44,
-
     borderRadius: 22,
-
     backgroundColor: "rgba(0,0,0,0.45)",
-
     alignItems: "center",
     justifyContent: "center",
   },
@@ -470,7 +490,6 @@ const styles = StyleSheet.create({
 
   headerTitle: {
     color: "#FFFFFF",
-
     fontSize: 17,
     fontWeight: "700",
   },
@@ -479,42 +498,31 @@ const styles = StyleSheet.create({
 
   instructionContainer: {
     position: "absolute",
-
     left: 20,
     right: 20,
-
     top: "73%",
-
     alignItems: "center",
   },
 
   instruction: {
     color: "#FFFFFF",
-
     fontSize: 13,
     fontWeight: "500",
-
     textAlign: "center",
-
     backgroundColor: "rgba(0,0,0,0.4)",
-
     paddingHorizontal: 14,
     paddingVertical: 8,
-
     borderRadius: 12,
-
     overflow: "hidden",
   },
 
-  // Captured pages
+  /* Captured pages */
 
   pagesContainer: {
     position: "absolute",
-
     left: 0,
     right: 0,
     bottom: 125,
-
     alignItems: "center",
   },
 
@@ -526,13 +534,9 @@ const styles = StyleSheet.create({
   pageThumbnail: {
     width: 58,
     height: 76,
-
     borderRadius: 8,
-
     overflow: "hidden",
-
     backgroundColor: "rgba(255,255,255,0.15)",
-
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.7)",
   },
@@ -544,41 +548,30 @@ const styles = StyleSheet.create({
 
   pageNumber: {
     position: "absolute",
-
     left: 4,
     top: 4,
-
     width: 22,
     height: 22,
-
     borderRadius: 11,
-
     backgroundColor: "rgba(0,0,0,0.7)",
-
     alignItems: "center",
     justifyContent: "center",
   },
 
   pageNumberText: {
     color: "#FFFFFF",
-
     fontSize: 11,
     fontWeight: "700",
   },
 
   pageCount: {
     marginTop: 7,
-
     color: "#FFFFFF",
-
     fontSize: 12,
     fontWeight: "600",
-
     backgroundColor: "rgba(0,0,0,0.35)",
-
     paddingHorizontal: 10,
     paddingVertical: 4,
-
     borderRadius: 10,
   },
 
@@ -586,11 +579,9 @@ const styles = StyleSheet.create({
 
   bottomControls: {
     position: "absolute",
-
     left: 25,
     right: 25,
     bottom: 30,
-
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -598,7 +589,6 @@ const styles = StyleSheet.create({
 
   galleryButton: {
     width: 70,
-
     alignItems: "center",
     justifyContent: "center",
   },
@@ -609,9 +599,7 @@ const styles = StyleSheet.create({
 
   controlLabel: {
     marginTop: 5,
-
     color: "#FFFFFF",
-
     fontSize: 12,
     fontWeight: "600",
   },
@@ -619,11 +607,8 @@ const styles = StyleSheet.create({
   captureButton: {
     width: 76,
     height: 76,
-
     borderRadius: 38,
-
     backgroundColor: "#FFFFFF",
-
     alignItems: "center",
     justifyContent: "center",
   },
@@ -631,9 +616,7 @@ const styles = StyleSheet.create({
   captureInner: {
     width: 64,
     height: 64,
-
     borderRadius: 32,
-
     borderWidth: 3,
     borderColor: "#D1D5DB",
   },
