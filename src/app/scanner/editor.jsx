@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import { useRef, useState } from "react";
+import { ArrowLeft, Crop, RotateCw, Sparkles } from "lucide-react-native";
+import { useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -20,13 +20,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 export default function EditorScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { color } = useTheme();
 
-  const { pages } = useScanSession();
+  const { color } = useTheme();
+  const { pages, updatePage } = useScanSession();
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const flatListRef = useRef(null);
+  const currentPage = pages[currentIndex];
 
   const handleBack = () => {
     router.back();
@@ -37,9 +37,23 @@ export default function EditorScreen() {
 
     const index = Math.round(offsetX / SCREEN_WIDTH);
 
-    if (index >= 0 && index < pages.length && index !== currentIndex) {
+    if (index >= 0 && index < pages.length) {
       setCurrentIndex(index);
     }
+  };
+
+  const handleRotate = () => {
+    if (!currentPage) {
+      return;
+    }
+
+    const currentRotation = currentPage.rotation || 0;
+
+    const newRotation = (currentRotation + 90) % 360;
+
+    updatePage(currentPage.id, {
+      rotation: newRotation,
+    });
   };
 
   if (pages.length === 0) {
@@ -48,38 +62,20 @@ export default function EditorScreen() {
         style={[
           styles.emptyContainer,
           {
-            backgroundColor: color.background,
+            backgroundColor: color.black,
             paddingTop: insets.top,
             paddingBottom: insets.bottom,
           },
         ]}
       >
-        <Text
-          style={[
-            styles.emptyTitle,
-            {
-              color: color.text,
-            },
-          ]}
-        >
-          No Pages
-        </Text>
-
-        <Text
-          style={[
-            styles.emptyText,
-            {
-              color: color.textSecondary,
-            },
-          ]}
-        >
-          There are no pages available to edit.
+        <Text style={[styles.emptyText, { color: color.white }]}>
+          No pages available
         </Text>
 
         <Pressable
           onPress={handleBack}
           style={[
-            styles.emptyButton,
+            styles.backButton,
             {
               backgroundColor: color.primary,
             },
@@ -87,13 +83,13 @@ export default function EditorScreen() {
         >
           <Text
             style={[
-              styles.emptyButtonText,
+              styles.backButtonText,
               {
                 color: color.white,
               },
             ]}
           >
-            Back to Camera
+            Back
           </Text>
         </Pressable>
       </View>
@@ -105,7 +101,7 @@ export default function EditorScreen() {
       style={[
         styles.container,
         {
-          backgroundColor: color.background,
+          backgroundColor: color.black,
         },
       ]}
     >
@@ -120,55 +116,46 @@ export default function EditorScreen() {
       >
         <Pressable
           onPress={handleBack}
-          style={[
-            styles.backButton,
-            {
-              backgroundColor: color.surface,
-              borderColor: color.border,
-            },
-          ]}
+          style={styles.circleButton}
+          hitSlop={10}
         >
-          <ArrowLeft size={22} color={color.text} strokeWidth={2.2} />
+          <ArrowLeft size={22} color={color.white} strokeWidth={2.2} />
         </Pressable>
 
-        <Text
-          style={[
-            styles.title,
-            {
-              color: color.text,
-            },
-          ]}
-        >
-          Editor
-        </Text>
+        <Text style={styles.headerTitle}>Edit</Text>
 
-        <View style={styles.headerSpacer} />
+        <View style={styles.pageIndicator}>
+          <Text style={styles.pageIndicatorText}>
+            {currentIndex + 1} / {pages.length}
+          </Text>
+        </View>
       </View>
 
-      {/* Page viewer */}
+      {/* Photo Viewer */}
       <View style={styles.viewerContainer}>
         <FlatList
-          ref={flatListRef}
           data={pages}
           keyExtractor={(item) => item.id}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handlePageChange}
+          decelerationRate="fast"
           renderItem={({ item }) => (
             <View style={styles.pageSlide}>
-              <View
-                style={[
-                  styles.pageWrapper,
-                  {
-                    backgroundColor: color.surface,
-                    borderColor: color.border,
-                  },
-                ]}
-              >
+              <View style={styles.imageWrapper}>
                 <Image
                   source={{ uri: item.uri }}
-                  style={styles.pageImage}
+                  style={[
+                    styles.pageImage,
+                    {
+                      transform: [
+                        {
+                          rotate: `${item.rotation || 0}deg`,
+                        },
+                      ],
+                    },
+                  ]}
                   resizeMode="contain"
                 />
               </View>
@@ -178,50 +165,38 @@ export default function EditorScreen() {
       </View>
 
       {/* Page indicator */}
-      <View
-        style={[
-          styles.pageIndicator,
-          {
-            backgroundColor: color.surface,
-            borderColor: color.border,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.pageIndicatorText,
-            {
-              color: color.text,
-            },
-          ]}
-        >
-          {currentIndex + 1} / {pages.length}
+      <View style={styles.bottomPageIndicator}>
+        <Text style={styles.bottomPageText}>
+          Page {currentIndex + 1} of {pages.length}
         </Text>
       </View>
 
-      {/* Editing toolbar placeholder */}
+      {/* Editing Tools */}
       <View
         style={[
-          styles.bottomBar,
+          styles.toolsContainer,
           {
             paddingBottom: Math.max(insets.bottom, 16) + 10,
-            backgroundColor: color.surface,
-            borderTopColor: color.border,
           },
         ]}
       >
-        <View style={styles.toolPlaceholder}>
-          <Text
-            style={[
-              styles.toolPlaceholderText,
-              {
-                color: color.textSecondary,
-              },
-            ]}
-          >
-            Editing tools coming next
-          </Text>
-        </View>
+        <Pressable style={styles.toolButton} onPress={handleRotate}>
+          <RotateCw size={22} color={color.white} strokeWidth={2} />
+
+          <Text style={styles.toolText}>Rotate</Text>
+        </Pressable>
+
+        <Pressable style={styles.toolButton}>
+          <Crop size={22} color={color.white} strokeWidth={2} />
+
+          <Text style={styles.toolText}>Crop</Text>
+        </Pressable>
+
+        <Pressable style={styles.toolButton}>
+          <Sparkles size={22} color={color.white} strokeWidth={2} />
+
+          <Text style={styles.toolText}>Enhance</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -231,6 +206,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+
+  /* Empty */
+
+  emptyContainer: {
+    flex: 1,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    paddingHorizontal: 30,
+  },
+
+  emptyText: {
+    fontSize: 17,
+    fontWeight: "600",
+  },
+
+  backButton: {
+    marginTop: 20,
+
+    height: 48,
+
+    paddingHorizontal: 24,
+
+    borderRadius: 15,
+
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  backButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  /* Header */
 
   header: {
     minHeight: 76,
@@ -242,26 +253,47 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  backButton: {
+  circleButton: {
     width: 44,
     height: 44,
 
     borderRadius: 22,
 
-    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.12)",
 
     alignItems: "center",
     justifyContent: "center",
   },
 
-  title: {
+  headerTitle: {
+    color: "#FFFFFF",
+
     fontSize: 18,
     fontWeight: "700",
   },
 
-  headerSpacer: {
-    width: 44,
+  pageIndicator: {
+    minWidth: 55,
+
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+
+    borderRadius: 12,
+
+    backgroundColor: "rgba(255,255,255,0.12)",
+
+    alignItems: "center",
+    justifyContent: "center",
   },
+
+  pageIndicatorText: {
+    color: "#FFFFFF",
+
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  /* Viewer */
 
   viewerContainer: {
     flex: 1,
@@ -272,24 +304,23 @@ const styles = StyleSheet.create({
   pageSlide: {
     width: SCREEN_WIDTH,
 
+    flex: 1,
+
     alignItems: "center",
     justifyContent: "center",
 
     paddingHorizontal: 16,
+    paddingVertical: 10,
   },
 
-  pageWrapper: {
+  imageWrapper: {
     width: "100%",
-    height: "90%",
-
-    borderRadius: 12,
-
-    borderWidth: 1,
-
-    overflow: "hidden",
+    height: "100%",
 
     alignItems: "center",
     justifyContent: "center",
+
+    overflow: "hidden",
   },
 
   pageImage: {
@@ -297,81 +328,49 @@ const styles = StyleSheet.create({
     height: "100%",
   },
 
-  pageIndicator: {
-    alignSelf: "center",
+  /* Page information */
 
-    marginBottom: 12,
-
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-
-    borderRadius: 14,
-
-    borderWidth: 1,
-  },
-
-  pageIndicatorText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  bottomBar: {
-    minHeight: 90,
-
-    paddingHorizontal: 20,
-
-    borderTopWidth: 1,
-
+  bottomPageIndicator: {
     alignItems: "center",
-    justifyContent: "center",
+
+    paddingVertical: 8,
   },
 
-  toolPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
+  bottomPageText: {
+    color: "#D1D5DB",
+
+    fontSize: 12,
+    fontWeight: "500",
   },
 
-  toolPlaceholderText: {
-    fontSize: 13,
-  },
+  /* Tools */
 
-  emptyContainer: {
-    flex: 1,
-
-    alignItems: "center",
-    justifyContent: "center",
+  toolsContainer: {
+    minHeight: 88,
 
     paddingHorizontal: 30,
+
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.08)",
+
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
   },
 
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-  },
-
-  emptyText: {
-    marginTop: 8,
-
-    fontSize: 14,
-
-    textAlign: "center",
-  },
-
-  emptyButton: {
-    marginTop: 22,
-
-    height: 48,
-
-    paddingHorizontal: 22,
-
-    borderRadius: 14,
+  toolButton: {
+    minWidth: 80,
 
     alignItems: "center",
     justifyContent: "center",
   },
 
-  emptyButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
+  toolText: {
+    marginTop: 6,
+
+    color: "#FFFFFF",
+
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

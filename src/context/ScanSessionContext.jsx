@@ -21,6 +21,19 @@ export function ScanSessionProvider({ children }) {
     );
   };
 
+  const updatePage = (pageId, updates) => {
+    setPages((currentPages) =>
+      currentPages.map((page) =>
+        page.id === pageId
+          ? {
+              ...page,
+              ...updates,
+            }
+          : page,
+      ),
+    );
+  };
+
   const clearSession = () => {
     setPages([]);
   };
@@ -32,6 +45,7 @@ export function ScanSessionProvider({ children }) {
         addPage,
         deletePage,
         replacePage,
+        updatePage,
         clearSession,
       }}
     >
