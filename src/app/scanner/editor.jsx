@@ -186,13 +186,43 @@ export default function EditorScreen() {
           <Text style={styles.toolText}>Rotate</Text>
         </Pressable>
 
-        <Pressable style={styles.toolButton}>
+        <Pressable
+          style={styles.toolButton}
+          onPress={() => {
+            if (!currentPage) {
+              return;
+            }
+
+            router.navigate({
+              pathname: "/scanner/crop",
+              params: {
+                uri: currentPage.originalUri || currentPage.uri,
+                pageId: currentPage.id,
+              },
+            });
+          }}
+        >
           <Crop size={22} color={color.white} strokeWidth={2} />
 
           <Text style={styles.toolText}>Crop</Text>
         </Pressable>
 
-        <Pressable style={styles.toolButton}>
+        <Pressable
+          style={styles.toolButton}
+          onPress={() => {
+            if (!currentPage) {
+              return;
+            }
+
+            router.navigate({
+              pathname: "/scanner/enhance",
+              params: {
+                uri: currentPage.uri,
+                pageId: currentPage.id,
+              },
+            });
+          }}
+        >
           <Sparkles size={22} color={color.white} strokeWidth={2} />
 
           <Text style={styles.toolText}>Enhance</Text>
